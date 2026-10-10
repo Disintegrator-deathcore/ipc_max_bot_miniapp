@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Запись в приёмную</title>
+  <style>
+    :root {
+      --bg-color: #f4f5f7;
+      --card-bg: #ffffff;
+      --text-color: #1a1a1a;
+      --primary-color: #0066ff;
+      --border-color: #e0e0e0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 20px;
+      text-align: center;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    input[type="text"],
+    input[type="date"],
+    input[type="time"] {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 15px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-sizing: border-box;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--primary-color);
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      background-color: var(--primary-color);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .alert {
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-top: 16px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .alert.success {
+      background-color: #e6f4ea;
+      color: #137333;
+    }
+
+    .alert.error {
+      background-color: #fce8e6;
+      color: #c5221f;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Запись на визит</h2>
+
+  <form id="appointmentForm">
+    <div class="form-group">
+      <label for="fullName">ФИО визитера</label>
+      <input type="text" id="fullName" placeholder="Иванов Иван Иванович" required>
+    </div>
+
+    <div class="form-group">
+      <label for="visitDate">Дата визита</label>
+      <input type="date" id="visitDate" required>
+    </div>
+
+    <div class="form-group">
+      <label for="visitTime">Время визита</label>
+      <input type="time" id="visitTime" required>
+    </div>
+
+    <button type="submit" id="submitBtn">Записаться</button>
+  </form>
+
+  <div id="statusAlert" class="alert"></div>
+</div>
+
+<script>
+  // Получение initData из параметров URL или глобального объекта WebApp
+  function getInitData() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('bot_init_data') || urlParams.get('init_data') || '';
+  }
+
+  const form = document.getElementById('appointmentForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const alertBox = document.getElementById('statusAlert');
+
+  // Установка минимальной даты — сегодня
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('visitDate').min = today;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const fullName = document.getElementById('fullName').value.trim();
+    const visitDate = document.getElementById('visitDate').value;
+    const visitTime = document.getElementById('visitTime').value;
+    const initData = getInitData();
+
+    if (!fullName || !visitDate || !visitTime) {
+      showAlert('Заполните все поля формы', 'error');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Отправка...';
+    alertBox.style.display = 'none';
+
+    try {
+      const response = await fetch('/api/appointment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          init_data: initData,
+          full_name: fullName,
+          date: visitDate,
+          time: visitTime
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.status === 'success') {
+        showAlert('Вы успешно записаны на визит!', 'success');
+        form.reset();
+      } else {
+        showAlert(result.message || 'Ошибка сохранения записи', 'error');
+      }
+    } catch (err) {
+      showAlert('Сетевая ошибка. Попробуйте позже.', 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Записаться';
+    }
+  });
+
+  function showAlert(message, type) {
+    alertBox.textContent = message;
+    alertBox.className = `alert ${type}`;
+    alertBox.style.display = 'block';
+  }
+</script>
+</body>
+</html>
